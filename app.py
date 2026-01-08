@@ -1,4 +1,4 @@
-import streamlit as st
+Rimport streamlit as st
 from supabase import create_client
 import datetime
 import pandas as pd
@@ -102,7 +102,7 @@ with col_bakiye:
             border: 1px solid #d1d5db;
             text-align: center;">
             <p style="margin: 0; font-size: 14px; color: #6b7280; font-weight: bold;">HESAP DURUMU</p>
-            <p style="margin: 0; font-size: 22px; font-weight: 800; color: #1f2937;">{güncel_bakiye:,.2f} TL</p>
+            <p style="margin: 0; font-size: 22px; font-weight: 800; color: #1f2937;">{güncel_bakiye:,.2f} EUR</p>
         </div>
         """,
         unsafe_allow_html=True
