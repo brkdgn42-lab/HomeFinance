@@ -9,8 +9,8 @@ st.set_page_config(page_title="Ev Yönetim Paneli", layout="wide")
 
 # --- BAĞLANTI ---
 # Bu bilgileri Streamlit Cloud panelinde "Secrets" kısmına ekleyeceğiz
-url = st.secrets["SUPABASE_URL"]
-key = st.secrets["SUPABASE_KEY"]
+url = st.secrets["https://ctbpcjqayruedqyqyxdp.supabase.co"]
+key = st.secrets["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0YnBjanFheXJ1ZWRxeXF5eGRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4NDE1OTcsImV4cCI6MjA4MzQxNzU5N30.F7yPvg0afGK8yIKgQTfrn0JknVGLO6FAZz3J6k5hg-Q"]
 supabase = create_client(url, key)
 
 # --- VERİ ÇEKME FONKSİYONLARI ---
