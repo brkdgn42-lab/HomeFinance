@@ -2,7 +2,6 @@ import streamlit as st
 from supabase import create_client
 import datetime
 import pandas as pd
-from fpdf import FPDF
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(page_title="Ev Yönetim Paneli", layout="wide")
@@ -17,9 +16,7 @@ def verileri_yukle():
     bugun = datetime.date.today()
     ay_basi = bugun.replace(day=1)
     
-    # Sabit Giderler
     sabit = supabase.table("sabit_gider").select("*").order("id").execute()
-    # Gelir/Gider (Bu ay)
     hareketler = supabase.table("gelir_gider")\
         .select("*")\
         .gte("tarih", str(ay_basi))\
@@ -27,25 +24,44 @@ def verileri_yukle():
         
     return pd.DataFrame(sabit.data), pd.DataFrame(hareketler.data)
 
-# --- SESSION STATE BAŞLATMA ---
+# --- ANLIK GÜNCELLEME FONKSİYONU ---
+def sabit_guncelle():
+    # Tablodaki değişiklikleri yakala
+    degisiklikler = st.session_state["sabit_editor"]["edited_rows"]
+    for satir_index, degerler in degisiklikler.items():
+        if "odendi" in degerler:
+            # Gerçek ID'yi bul ve Supabase'e gönder
+            row_id = int(st.session_state.df_sabit.iloc[satir_index]["id"])
+            yeni_durum = degerler["odendi"]
+            supabase.table("sabit_gider").update({"odendi": yeni_durum}).eq("id", row_id).execute()
+            # Hafızadaki veriyi güncelle (Bakiyenin anında değişmesi için)
+            st.session_state.df_sabit.at[satir_index, "odendi"] = yeni_durum
+
+# --- SESSION STATE ---
 if 'df_sabit' not in st.session_state:
     sabit, hareket = verileri_yukle()
     st.session_state.df_sabit = sabit
     st.session_state.df_hareket = hareket
 
-# --- ÜST KISIM VE HESAPLAMA ---
+# --- HESAPLAMA ---
 toplam_gelir = st.session_state.df_hareket[st.session_state.df_hareket['tur'] == 'Gelir']['tutar'].sum() if not st.session_state.df_hareket.empty else 0
 toplam_gider = st.session_state.df_hareket[st.session_state.df_hareket['tur'] == 'Gider']['tutar'].sum() if not st.session_state.df_hareket.empty else 0
+odenen_sabit = st.session_state.df_sabit[st.session_state.df_sabit['odendi'] == True]['tutar'].sum() if not st.session_state.df_sabit.empty else 0
+güncel_bakiye = toplam_gelir - toplam_gider - odenen_sabit
 
+# --- ARAYÜZ ---
 col_baslik, col_bakiye = st.columns([3, 1])
 
 with col_baslik:
     st.title("🏠 Ev Yönetim Paneli")
     st.caption(f"{datetime.date.today().strftime('%B %Y')} Dönemi")
 
-# --- ORTA KISIM: SABİT GİDERLER ---
+with col_bakiye:
+    st.container(border=True).metric("HESAP DURUMU", f"{güncel_bakiye:,.2f} TL")
+
+# --- SABİT GİDERLER TABLOSU ---
 st.subheader("📌 Sabit Giderler")
-edited_df = st.data_editor(
+st.data_editor(
     st.session_state.df_sabit[["id", "aciklama", "tutar", "odendi"]],
     column_config={
         "odendi": st.column_config.CheckboxColumn("Ödendi", default=False),
@@ -53,30 +69,15 @@ edited_df = st.data_editor(
     },
     use_container_width=True,
     hide_index=True,
-    key="sabit_editor"
+    key="sabit_editor",
+    on_change=sabit_guncelle # Tıklandığı an fonksiyonu çalıştırır
 )
-
-# --- ANLIK BAKİYE HESABI ---
-odenen_sabit_guncel = edited_df[edited_df['odendi'] == True]['tutar'].sum()
-güncel_bakiye = toplam_gelir - toplam_gider - odenen_sabit_guncel
-
-with col_bakiye:
-    st.container(border=True).metric("HESAP DURUMU", f"{güncel_bakiye:,.2f} TL")
-
-if st.button("Değişiklikleri Veritabanına Sabitle"):
-    for index, row in edited_df.iterrows():
-        supabase.table("sabit_gider").update({"odendi": row["odendi"]}).eq("id", row["id"]).execute()
-    st.success("Veritabanı güncellendi!")
-    st.session_state.df_sabit = edited_df
-    st.rerun()
 
 st.divider()
 
-# --- SIDEBAR (YAN PANEL) ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("⚙️ İşlemler")
-    
-    # Yeni Kayıt Ekleme (Pop-over/Modal)
     with st.popover("➕ Yeni Gelir/Gider Ekle", use_container_width=True):
         with st.form("yeni_kayit", clear_on_submit=True):
             tarih = st.date_input("Tarih", datetime.date.today())
@@ -86,21 +87,17 @@ with st.sidebar:
             if st.form_submit_button("Kaydet"):
                 data = {"tarih": str(tarih), "aciklama": aciklama, "tutar": tutar, "tur": tur}
                 supabase.table("gelir_gider").insert(data).execute()
-                if 'df_hareket' in st.session_state:
-                    del st.session_state.df_hareket
+                # Verileri tazelemek için session'ı temizle
+                del st.session_state.df_hareket
                 st.rerun()
 
     st.divider()
-    
-    # Raporlama Bölümü
     st.subheader("🖨️ Raporlama")
     secilen_ay = st.date_input("Rapor Alınacak Ay", value=datetime.date.today())
-    
     if st.button("📄 Bu Ayın PDF Raporunu Al", use_container_width=True):
-        st.info("Rapor hazırlanıyor, lütfen bekleyin...")
-        # Buraya PDF oluşturma mantığı gelecek. Şimdilik buton aktif.
+        st.info("Rapor hazırlanıyor...")
 
-# --- ALT KISIM: HAREKETLER ---
+# --- HAREKETLER ---
 st.subheader("📊 Ay İçindeki Hareketler")
 if not st.session_state.df_hareket.empty:
     st.dataframe(st.session_state.df_hareket[["tarih", "aciklama", "tur", "tutar"]], use_container_width=True)
