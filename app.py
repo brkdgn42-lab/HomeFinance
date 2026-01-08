@@ -92,7 +92,21 @@ with col_baslik:
     st.caption(f"{datetime.date.today().strftime('%B %Y')} Dönemi")
 
 with col_bakiye:
-    st.container(border=True).metric("HESAP DURUMU", f"{güncel_bakiye:,.2f} TL")
+    # Eski metric satırını silip bunu yapıştır:
+    st.markdown(
+        f"""
+        <div style="
+            background-color: #f0f2f6;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            text-align: center;">
+            <p style="margin: 0; font-size: 14px; color: #6b7280; font-weight: bold;">HESAP DURUMU</p>
+            <p style="margin: 0; font-size: 22px; font-weight: 800; color: #1f2937;">{güncel_bakiye:,.2f} TL</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # --- SABİT GİDERLER TABLOSU ---
 st.subheader("📌 Sabit Giderler")
