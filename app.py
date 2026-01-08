@@ -33,7 +33,6 @@ if 'df_sabit' not in st.session_state:
     st.session_state.df_hareket = hareket
 
 # --- ÜST KISIM VE HESAPLAMA ---
-# Gelir ve Gider toplamları
 toplam_gelir = st.session_state.df_hareket[st.session_state.df_hareket['tur'] == 'Gelir']['tutar'].sum() if not st.session_state.df_hareket.empty else 0
 toplam_gider = st.session_state.df_hareket[st.session_state.df_hareket['tur'] == 'Gider']['tutar'].sum() if not st.session_state.df_hareket.empty else 0
 
@@ -46,7 +45,7 @@ with col_baslik:
 # --- ORTA KISIM: SABİT GİDERLER ---
 st.subheader("📌 Sabit Giderler")
 
-# Veri editörü (Anlık değişiklikleri yakalar)
+# Veri editörü (Anlık bakiye değişimi için)
 edited_df = st.data_editor(
     st.session_state.df_sabit[["id", "aciklama", "tutar", "odendi"]],
     column_config={
@@ -58,29 +57,43 @@ edited_df = st.data_editor(
     key="sabit_editor"
 )
 
-# --- BAKİYE HESABI (EDİTÖRE GÖRE) ---
-# Burada kritik nokta: Bakiye, veritabanına değil o anki tablo durumuna (edited_df) bakıyor
+# --- ANLIK BAKİYE HESABI ---
 odenen_sabit_guncel = edited_df[edited_df['odendi'] == True]['tutar'].sum()
 güncel_bakiye = toplam_gelir - toplam_gider - odenen_sabit_guncel
 
-# Sağ üstteki bakiye güncellemesi
 with col_bakiye:
     st.container(border=True).metric("HESAP DURUMU", f"{güncel_bakiye:,.2f} TL")
 
-# --- KAYDETME VE DİĞER İŞLEMLER ---
-col_save, col_empty = st.columns([1, 4])
-with col_save:
-    if st.button("Değişiklikleri Veritabanına Sabitle", use_container_width=True):
-        for index, row in edited_df.iterrows():
-            supabase.table("sabit_gider").update({"odendi": row["odendi"]}).eq("id", row["id"]).execute()
-        st.success("Kaydedildi!")
-        # Verileri tazelemek için session'ı temizle
-        del st.session_state.df_sabit
-        st.rerun()
+# --- KAYDETME BUTONU ---
+if st.button("Değişiklikleri Veritabanına Sabitle"):
+    for index, row in edited_df.iterrows():
+        supabase.table("sabit_gider").update({"odendi": row["odendi"]}).eq("id", row["id"]).execute()
+    st.success("Veritabanı güncellendi!")
+    st.session_state.df_sabit = edited_df
+    st.rerun()
 
 st.divider()
 
 # --- AKSİYON BUTONU (MODAL) ---
 with st.sidebar:
     st.header("İşlemler")
-    with st.popover("➕ Yeni Gelir/Gider Ekle", use_container_
+    with st.popover("➕ Yeni Gelir/Gider Ekle", use_container_width=True):
+        with st.form("yeni_kayit", clear_on_submit=True):
+            tarih = st.date_input("Tarih", datetime.date.today())
+            tur = st.selectbox("Tür", ["Gelir", "Gider"])
+            aciklama = st.text_input("Açıklama")
+            tutar = st.number_input("Tutar", min_value=0.0)
+            if st.form_submit_button("Kaydet"):
+                data = {"tarih": str(tarih), "aciklama": aciklama, "tutar": tutar, "tur": tur}
+                supabase.table("gelir_gider").insert(data).execute()
+                # Hareketleri tazelemek için session'ı siliyoruz
+                if 'df_hareket' in st.session_state:
+                    del st.session_state.df_hareket
+                st.rerun()
+
+# --- ALT KISIM: HAREKETLER ---
+st.subheader("📊 Ay İçindeki Hareketler")
+if not st.session_state.df_hareket.empty:
+    st.dataframe(st.session_state.df_hareket[["tarih", "aciklama", "tur", "tutar"]], use_container_width=True)
+else:
+    st.info("Bu ay henüz bir hareket girilmemiş.")
