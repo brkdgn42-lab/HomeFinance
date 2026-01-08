@@ -92,7 +92,9 @@ with col_baslik:
     st.caption(f"{datetime.date.today().strftime('%B %Y')} Dönemi")
 
 with col_bakiye:
-    # Eski metric satırını silip bunu yapıştır:
+    # Değişken isminde Türkçe karakter sorunu riskine karşı direkt hesaplanmış rakamı alıyoruz
+    bakiye_metni = f"{güncel_bakiye:,.2f} €"
+    
     st.markdown(
         f"""
         <div style="
@@ -102,12 +104,11 @@ with col_bakiye:
             border: 1px solid #d1d5db;
             text-align: center;">
             <p style="margin: 0; font-size: 14px; color: #6b7280; font-weight: bold;">HESAP DURUMU</p>
-            <p style="margin: 0; font-size: 22px; font-weight: 800; color: #1f2937;">{güncel_bakiye:,.2f} EUR</p>
+            <p style="margin: 0; font-size: 20px; font-weight: 800; color: #1f2937;">{bakiye_metni}</p>
         </div>
         """,
         unsafe_allow_html=True
     )
-
 # --- SABİT GİDERLER TABLOSU ---
 st.subheader("📌 Sabit Giderler")
 if not df_s.empty:
