@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client
 import datetime
 import pandas as pd
+from fpdf import FPDF
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(page_title="Ev Yönetim Paneli", layout="wide")
@@ -44,8 +45,6 @@ with col_baslik:
 
 # --- ORTA KISIM: SABİT GİDERLER ---
 st.subheader("📌 Sabit Giderler")
-
-# Veri editörü (Anlık bakiye değişimi için)
 edited_df = st.data_editor(
     st.session_state.df_sabit[["id", "aciklama", "tutar", "odendi"]],
     column_config={
@@ -64,7 +63,6 @@ güncel_bakiye = toplam_gelir - toplam_gider - odenen_sabit_guncel
 with col_bakiye:
     st.container(border=True).metric("HESAP DURUMU", f"{güncel_bakiye:,.2f} TL")
 
-# --- KAYDETME BUTONU ---
 if st.button("Değişiklikleri Veritabanına Sabitle"):
     for index, row in edited_df.iterrows():
         supabase.table("sabit_gider").update({"odendi": row["odendi"]}).eq("id", row["id"]).execute()
@@ -74,9 +72,11 @@ if st.button("Değişiklikleri Veritabanına Sabitle"):
 
 st.divider()
 
-# --- AKSİYON BUTONU (MODAL) ---
+# --- SIDEBAR (YAN PANEL) ---
 with st.sidebar:
-    st.header("İşlemler")
+    st.header("⚙️ İşlemler")
+    
+    # Yeni Kayıt Ekleme (Pop-over/Modal)
     with st.popover("➕ Yeni Gelir/Gider Ekle", use_container_width=True):
         with st.form("yeni_kayit", clear_on_submit=True):
             tarih = st.date_input("Tarih", datetime.date.today())
@@ -86,10 +86,19 @@ with st.sidebar:
             if st.form_submit_button("Kaydet"):
                 data = {"tarih": str(tarih), "aciklama": aciklama, "tutar": tutar, "tur": tur}
                 supabase.table("gelir_gider").insert(data).execute()
-                # Hareketleri tazelemek için session'ı siliyoruz
                 if 'df_hareket' in st.session_state:
                     del st.session_state.df_hareket
                 st.rerun()
+
+    st.divider()
+    
+    # Raporlama Bölümü
+    st.subheader("🖨️ Raporlama")
+    secilen_ay = st.date_input("Rapor Alınacak Ay", value=datetime.date.today())
+    
+    if st.button("📄 Bu Ayın PDF Raporunu Al", use_container_width=True):
+        st.info("Rapor hazırlanıyor, lütfen bekleyin...")
+        # Buraya PDF oluşturma mantığı gelecek. Şimdilik buton aktif.
 
 # --- ALT KISIM: HAREKETLER ---
 st.subheader("📊 Ay İçindeki Hareketler")
